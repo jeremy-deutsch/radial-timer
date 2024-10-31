@@ -5,11 +5,12 @@ import {
   MotionValue,
   PanInfo,
   useMotionValue,
+  useMotionValueEvent,
   useTime,
   useTransform,
 } from "framer-motion";
 import styles from "./page.module.css";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // We store whatever's *not* frequently changing in state.
 // If the timer's paused, that's the amount of time left; if the timer's
@@ -18,13 +19,6 @@ type TimerState =
   | { type: "paused"; totalTimeMs: number; timeLeftMs: number }
   | { type: "running"; totalTimeMs: number; endTimeMs: number };
 
-interface DragState {
-  // The starting X and Y positions of the cursor drag
-  // relative to the center of the timer circle.
-  relativeStartX: number;
-  relativeStartY: number;
-}
-
 const MINUTE_MS = 60 * 1000;
 
 const INITIAL_TIMER_STATE: TimerState = {
@@ -32,12 +26,6 @@ const INITIAL_TIMER_STATE: TimerState = {
   totalTimeMs: 0,
   timeLeftMs: 0,
 };
-
-const CIRCLE_RADIUS = 100;
-const CIRCLE_X = 200;
-const CIRCLE_Y = 120;
-
-const DRAG_BUTTON_RADIUS = 10;
 
 export default function Home() {
   const currentTime = useTime();
@@ -116,6 +104,34 @@ export default function Home() {
               };
             });
           }}
+          onKeyboardCommand={(keyboardCommand) => {
+            const now = currentTime.get();
+            setTimerState((state) => {
+              let timeLeftMs;
+              if (state.type === "paused") {
+                timeLeftMs = state.timeLeftMs;
+              } else {
+                timeLeftMs = state.endTimeMs - now;
+              }
+
+              if (keyboardCommand === "decrement") {
+                timeLeftMs += 1000;
+              } else if (keyboardCommand === "increment") {
+                timeLeftMs -= 1000;
+              } else if (keyboardCommand === "start") {
+                timeLeftMs = state.totalTimeMs;
+              } else if (keyboardCommand === "end") {
+                timeLeftMs = 0;
+              }
+
+              return {
+                type: "paused",
+                totalTimeMs: Math.max(state.totalTimeMs, timeLeftMs),
+                timeLeftMs: Math.max(timeLeftMs, 0),
+              };
+            });
+          }}
+          onTogglePaused={togglePaused}
         />
         <div className={styles.bottomButtonRow}>
           <button className={styles.bottomTextButton} onClick={addOneMinute}>
@@ -134,24 +150,55 @@ export default function Home() {
   );
 }
 
+const CIRCLE_RADIUS = 100;
+const CIRCLE_X = 200;
+const CIRCLE_Y = 120;
+
+const DRAG_BUTTON_RADIUS = 10;
+
+const DECREMENTING_KEYS = ["ArrowLeft", "ArrowDown"];
+const INCREMENTING_KEYS = ["ArrowRight", "ArrowUp"];
+
+// The starting X and Y positions of the cursor drag relative to the center of the timer circle.
+// Used to calculate the angle of subsequent drag positions relative to that center, without
+// calling getBoundingClientRect() in a hot function.
+interface DragStartInfo {
+  relativeStartX: number;
+  relativeStartY: number;
+}
+
 interface RadialTimerProps {
   currentTime: MotionValue<number>;
   timerState: TimerState;
   onDragComplete: (dragPercentage: number) => void;
+  onKeyboardCommand: (
+    keyboardCommand: "increment" | "decrement" | "start" | "end"
+  ) => void;
+  onTogglePaused: () => void;
 }
 
 function RadialTimer(props: RadialTimerProps) {
-  const { currentTime, timerState, onDragComplete: onEndTimerDrag } = props;
+  const {
+    currentTime,
+    timerState,
+    onDragComplete,
+    onKeyboardCommand,
+    onTogglePaused,
+  } = props;
 
   const radialTimerContainerRef = useRef<HTMLDivElement>(null);
 
-  const [dragState, setDragState] = useState<DragState | null>(null);
+  // If we're dragging, this is the start position of the drag relative to the center
+  // of the circle. Otherwise it's null.
+  const [dragStartInfo, setDragStartInfo] = useState<DragStartInfo | null>(
+    null
+  );
 
   // Percentage value between zero and 1
   const animatedDragState = useMotionValue(0);
 
   const animatedTimeLeftMs = useTransform(() => {
-    if (dragState) {
+    if (dragStartInfo) {
       return animatedDragState.get() * timerState.totalTimeMs;
     }
 
@@ -193,72 +240,136 @@ function RadialTimer(props: RadialTimerProps) {
     return `${padLeadingZero(minutes)}:${padLeadingZero(seconds)}`;
   });
 
+  const dragButtonRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    // Set the aria values on the slider manually, without using React,
+    // so we don't have frequent re-renders.
+    if (dragButtonRef.current) {
+      dragButtonRef.current.setAttribute("aria-valuenow", "0");
+      dragButtonRef.current.setAttribute(
+        "aria-valuetext",
+        "0 minutes and 0 seconds"
+      );
+    }
+
+    return animatedTimeLeftMs.on("change", (ms) => {
+      if (!dragButtonRef.current) {
+        return;
+      }
+      dragButtonRef.current.setAttribute(
+        "aria-valuenow",
+        String(Math.floor(ms / 1000))
+      );
+
+      const minutes = Math.floor(ms / MINUTE_MS);
+      const secondsMinusMinutes = Math.floor((ms % MINUTE_MS) / 1000);
+
+      dragButtonRef.current.setAttribute(
+        "aria-valuetext",
+        `${minutes} minute${
+          minutes !== 1 ? "s" : ""
+        } and ${secondsMinusMinutes} second${
+          secondsMinusMinutes !== 1 ? "s" : ""
+        }`
+      );
+    });
+  }, [animatedTimeLeftMs]);
+
   return (
     <div className={styles.radialTimerContainer} ref={radialTimerContainerRef}>
       {/* TODO give this proper accessible slider controls */}
-      <motion.button
-        className={styles.radialTimerDragButton}
-        aria-label="draggable radial timer button"
-        style={{
-          x: animatedTimerDragButtonX,
-          y: animatedTimerDragButtonY,
-          "--drag-button-radius": `${DRAG_BUTTON_RADIUS}px`,
-        }}
-        onPanStart={(e: Event, info: PanInfo) => {
-          const container = radialTimerContainerRef.current;
-          if (!container) {
-            return;
-          }
-          const containerPosition = container.getBoundingClientRect();
-          const circleCenterXOnScreen = containerPosition.left + CIRCLE_X;
-          const circleCenterYOnScreen = containerPosition.top + CIRCLE_Y;
+      <div className={styles.sliderContainer}>
+        <motion.button
+          ref={dragButtonRef}
+          className={styles.radialTimerDragButton}
+          aria-label="draggable radial timer button"
+          role="slider"
+          aria-valuemin="0"
+          aria-valuemax={Math.floor(timerState.totalTimeMs / 1000)}
+          style={{
+            x: animatedTimerDragButtonX,
+            y: animatedTimerDragButtonY,
+            "--drag-button-radius": `${DRAG_BUTTON_RADIUS}px`,
+          }}
+          onKeyDown={(e: KeyboardEvent) => {
+            if (INCREMENTING_KEYS.includes(e.key)) {
+              onKeyboardCommand("increment");
+            } else if (DECREMENTING_KEYS.includes(e.key)) {
+              onKeyboardCommand("decrement");
+            } else if (e.key === "Home") {
+              onKeyboardCommand("start");
+            } else if (e.key === "End") {
+              onKeyboardCommand("end");
+            }
+          }}
+          onKeyUp={(e: KeyboardEvent) => {
+            if (e.key === " ") {
+              onTogglePaused();
+            }
+          }}
+          onPanStart={(e: Event, info: PanInfo) => {
+            const container = radialTimerContainerRef.current;
+            if (!container) {
+              return;
+            }
 
-          setDragState({
-            relativeStartX: info.point.x - circleCenterXOnScreen,
-            relativeStartY: info.point.y - circleCenterYOnScreen,
-          });
-        }}
-        onPanEnd={() => {
-          const currentDragStateValue = animatedDragState.get();
-          onEndTimerDrag(currentDragStateValue);
-          setDragState(null);
-        }}
-        onPan={(e: Event, info: PanInfo) => {
-          const container = radialTimerContainerRef.current;
-          if (!container || !dragState) {
-            return;
-          }
-          const xDistanceFromCenter = info.offset.x + dragState.relativeStartX;
+            dragButtonRef.current?.focus();
 
-          // Make Y negative - our trig assumes Y is up, but in the browser, Y is down
-          const yDistanceFromCenter = -(
-            info.offset.y + dragState.relativeStartY
-          );
+            const containerPosition = container.getBoundingClientRect();
+            const circleCenterXOnScreen = containerPosition.left + CIRCLE_X;
+            const circleCenterYOnScreen = containerPosition.top + CIRCLE_Y;
 
-          let angle = Math.atan2(xDistanceFromCenter, yDistanceFromCenter);
+            setDragStartInfo({
+              relativeStartX: info.point.x - circleCenterXOnScreen,
+              relativeStartY: info.point.y - circleCenterYOnScreen,
+            });
+          }}
+          onPanEnd={() => {
+            const currentDragStateValue = animatedDragState.get();
+            onDragComplete(currentDragStateValue);
+            setDragStartInfo(null);
+          }}
+          onPan={(e: Event, info: PanInfo) => {
+            const container = radialTimerContainerRef.current;
+            if (!container || !dragStartInfo) {
+              return;
+            }
 
-          // The angle might be negative - make it not negative
-          angle = (angle + Math.PI * 2) % (Math.PI * 2);
+            const xDistanceFromCenter =
+              info.offset.x + dragStartInfo.relativeStartX;
 
-          animatedDragState.set(angle / (Math.PI * 2));
-        }}
-      />
-      <motion.svg>
-        <circle
-          className={styles.radialTimerBackCircle}
-          r={CIRCLE_RADIUS}
-          cx={CIRCLE_X}
-          cy={CIRCLE_Y}
+            // Make Y negative - our trig assumes Y is up, but in the browser, Y is down
+            const yDistanceFromCenter = -(
+              info.offset.y + dragStartInfo.relativeStartY
+            );
+
+            let angle = Math.atan2(xDistanceFromCenter, yDistanceFromCenter);
+
+            // The angle might be negative - make it not negative
+            angle = (angle + Math.PI * 2) % (Math.PI * 2);
+
+            // Set the drag state to the angle as a percentage of a full rotation
+            animatedDragState.set(angle / (Math.PI * 2));
+          }}
         />
-        <motion.circle
-          className={styles.radialTimerFrontCircle}
-          pathLength={animatedTimeLeftPercentage}
-          transform={`rotate(-90 ${CIRCLE_X} ${CIRCLE_Y})`}
-          r={CIRCLE_RADIUS}
-          cx={CIRCLE_X}
-          cy={CIRCLE_Y}
-        />
-      </motion.svg>
+        <motion.svg>
+          <circle
+            className={styles.radialTimerBackCircle}
+            r={CIRCLE_RADIUS}
+            cx={CIRCLE_X}
+            cy={CIRCLE_Y}
+          />
+          <motion.circle
+            className={styles.radialTimerFrontCircle}
+            pathLength={animatedTimeLeftPercentage}
+            transform={`rotate(-90 ${CIRCLE_X} ${CIRCLE_Y})`}
+            r={CIRCLE_RADIUS}
+            cx={CIRCLE_X}
+            cy={CIRCLE_Y}
+          />
+        </motion.svg>
+      </div>
       <motion.div className={styles.timerText}>
         {animatedTimeLeftText}
       </motion.div>
