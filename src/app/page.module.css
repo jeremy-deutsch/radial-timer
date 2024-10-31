@@ -18,7 +18,7 @@
   overflow: hidden;
 }
 
-@media (min-width: 1250px) {
+@media (min-width: 450px) {
   .mainTimerSection {
     width: 400px;
     height: unset;
@@ -56,9 +56,42 @@
 .radialTimerContainer {
   flex: 1;
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+}
+
+.radialTimerDragButton {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: calc(var(--drag-button-radius) * 2);
+  width: calc(var(--drag-button-radius) * 2);
+  border-radius: var(--drag-button-radius);
+  background-color: var(--theme-text-fill);
+  transform-origin: bottom right;
+  box-shadow: 0 0 6px 1px;
+}
+
+.radialTimerContainer svg {
+  width: 100%;
+  height: 400px;
+}
+
+.radialTimerBackCircle {
+  fill: transparent;
+  stroke: var(--theme-dark-background);
+  stroke-width: 10px;
+}
+
+.radialTimerFrontCircle {
+  fill: transparent;
+  stroke: var(--theme-text-fill);
+  stroke-width: 10px;
+}
+
+.timerText {
+  position: absolute;
+  width: 100%;
+  text-align: center;
 }
 
 .bottomButtonRow {
