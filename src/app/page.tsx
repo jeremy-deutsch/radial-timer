@@ -5,7 +5,6 @@ import {
   MotionValue,
   PanInfo,
   useMotionValue,
-  useMotionValueEvent,
   useTime,
   useTransform,
 } from "framer-motion";
@@ -79,6 +78,23 @@ export default function Home() {
     });
   }
 
+  function pause() {
+    const now = currentTime.get();
+    setTimerState((state) => {
+      if (state.type === "paused") {
+        return state;
+      } else {
+        const { endTimeMs, totalTimeMs } = state;
+
+        return {
+          type: "paused",
+          totalTimeMs,
+          timeLeftMs: Math.max(endTimeMs - now, 0),
+        };
+      }
+    });
+  }
+
   return (
     <div className={styles.timerWrapper}>
       <main className={styles.mainTimerSection}>
@@ -132,6 +148,34 @@ export default function Home() {
             });
           }}
           onTogglePaused={togglePaused}
+          pause={pause}
+          onEdit={(inputAmount, fieldName) => {
+            const now = currentTime.get();
+            setTimerState((state) => {
+              let timeLeftMs: number;
+
+              if (state.type === "paused") {
+                timeLeftMs = state.timeLeftMs;
+              } else {
+                timeLeftMs = state.endTimeMs - now;
+              }
+
+              let newTimeLeftMs: number;
+              if (fieldName === "minutes") {
+                newTimeLeftMs =
+                  inputAmount * MINUTE_MS + (timeLeftMs % MINUTE_MS);
+              } else {
+                const minutesLeftMs = timeLeftMs - (timeLeftMs % MINUTE_MS);
+                newTimeLeftMs = inputAmount * 1000 + minutesLeftMs;
+              }
+
+              return {
+                type: "paused",
+                totalTimeMs: Math.max(state.totalTimeMs, newTimeLeftMs),
+                timeLeftMs: newTimeLeftMs,
+              };
+            });
+          }}
         />
         <div className={styles.bottomButtonRow}>
           <button className={styles.bottomTextButton} onClick={addOneMinute}>
@@ -151,8 +195,8 @@ export default function Home() {
 }
 
 const CIRCLE_RADIUS = 100;
-const CIRCLE_X = 200;
-const CIRCLE_Y = 120;
+const CIRCLE_CENTER_X = 200;
+const CIRCLE_CENTER_Y = 120;
 
 const DRAG_BUTTON_RADIUS = 10;
 
@@ -175,6 +219,8 @@ interface RadialTimerProps {
     keyboardCommand: "increment" | "decrement" | "start" | "end"
   ) => void;
   onTogglePaused: () => void;
+  pause: () => void;
+  onEdit: (amount: number, field: "minutes" | "seconds") => void;
 }
 
 function RadialTimer(props: RadialTimerProps) {
@@ -184,6 +230,8 @@ function RadialTimer(props: RadialTimerProps) {
     onDragComplete,
     onKeyboardCommand,
     onTogglePaused,
+    pause,
+    onEdit,
   } = props;
 
   const radialTimerContainerRef = useRef<HTMLDivElement>(null);
@@ -220,7 +268,9 @@ function RadialTimer(props: RadialTimerProps) {
     // We use sine, not cosine, because the circle is turned 90 degrees left.
     const positionRelativeToCircleCenter =
       Math.sin(timeLeftPercentage * 2 * Math.PI) * CIRCLE_RADIUS;
-    return positionRelativeToCircleCenter + CIRCLE_X - DRAG_BUTTON_RADIUS;
+    return (
+      positionRelativeToCircleCenter + CIRCLE_CENTER_X - DRAG_BUTTON_RADIUS
+    );
   });
 
   const animatedTimerDragButtonY = useTransform(() => {
@@ -230,14 +280,19 @@ function RadialTimer(props: RadialTimerProps) {
       Math.cos(timeLeftPercentage * 2 * Math.PI) * CIRCLE_RADIUS;
 
     // Subtract, don't add, because in the browser down is positive and up is negative
-    return CIRCLE_Y - positionRelativeToCircleCenter - DRAG_BUTTON_RADIUS;
+    return (
+      CIRCLE_CENTER_Y - positionRelativeToCircleCenter - DRAG_BUTTON_RADIUS
+    );
   });
 
-  const animatedTimeLeftText = useTransform(() => {
+  const animatedMinutesLeft = useTransform(() => {
     const ms = animatedTimeLeftMs.get();
-    const minutes = Math.floor(ms / MINUTE_MS);
-    const seconds = Math.floor((ms % MINUTE_MS) / 1000);
-    return `${padLeadingZero(minutes)}:${padLeadingZero(seconds)}`;
+    return Math.floor(ms / MINUTE_MS);
+  });
+
+  const animatedSecondsLeft = useTransform(() => {
+    const ms = animatedTimeLeftMs.get();
+    return Math.floor((ms % MINUTE_MS) / 1000);
   });
 
   const dragButtonRef = useRef<HTMLElement>(null);
@@ -277,9 +332,16 @@ function RadialTimer(props: RadialTimerProps) {
   }, [animatedTimeLeftMs]);
 
   return (
-    <div className={styles.radialTimerContainer} ref={radialTimerContainerRef}>
+    <div className={styles.radialTimerOuterWrapper}>
       {/* TODO give this proper accessible slider controls */}
-      <div className={styles.sliderContainer}>
+      <div
+        className={styles.radialTimerContainer}
+        ref={radialTimerContainerRef}
+        style={{
+          // @ts-expect-error custom property is unexpected by TS
+          "--circle-center-y": `${CIRCLE_CENTER_Y}px`,
+        }}
+      >
         <motion.button
           ref={dragButtonRef}
           className={styles.radialTimerDragButton}
@@ -317,8 +379,10 @@ function RadialTimer(props: RadialTimerProps) {
             dragButtonRef.current?.focus();
 
             const containerPosition = container.getBoundingClientRect();
-            const circleCenterXOnScreen = containerPosition.left + CIRCLE_X;
-            const circleCenterYOnScreen = containerPosition.top + CIRCLE_Y;
+            const circleCenterXOnScreen =
+              containerPosition.left + CIRCLE_CENTER_X;
+            const circleCenterYOnScreen =
+              containerPosition.top + CIRCLE_CENTER_Y;
 
             setDragStartInfo({
               relativeStartX: info.point.x - circleCenterXOnScreen,
@@ -357,23 +421,77 @@ function RadialTimer(props: RadialTimerProps) {
           <circle
             className={styles.radialTimerBackCircle}
             r={CIRCLE_RADIUS}
-            cx={CIRCLE_X}
-            cy={CIRCLE_Y}
+            cx={CIRCLE_CENTER_X}
+            cy={CIRCLE_CENTER_Y}
           />
           <motion.circle
             className={styles.radialTimerFrontCircle}
             pathLength={animatedTimeLeftPercentage}
-            transform={`rotate(-90 ${CIRCLE_X} ${CIRCLE_Y})`}
+            transform={`rotate(-90 ${CIRCLE_CENTER_X} ${CIRCLE_CENTER_Y})`}
             r={CIRCLE_RADIUS}
-            cx={CIRCLE_X}
-            cy={CIRCLE_Y}
+            cx={CIRCLE_CENTER_X}
+            cy={CIRCLE_CENTER_Y}
           />
         </motion.svg>
+        <div className={styles.timerInputsWrapper}>
+          <EditableTimeHalf
+            animatedValue={animatedMinutesLeft}
+            onFocus={pause}
+            onEdit={(newValue) => onEdit(newValue, "minutes")}
+            alignText="end"
+          />{" "}
+          :{" "}
+          <EditableTimeHalf
+            animatedValue={animatedSecondsLeft}
+            onFocus={pause}
+            onEdit={(newValue) => onEdit(newValue, "seconds")}
+            alignText="start"
+          />
+        </div>
       </div>
-      <motion.div className={styles.timerText}>
-        {animatedTimeLeftText}
-      </motion.div>
     </div>
+  );
+}
+
+interface EditableTimeHalfProps {
+  animatedValue: MotionValue<number>;
+  onFocus: () => void;
+  onEdit: (newValue: number) => void;
+  alignText: "start" | "end";
+}
+
+function EditableTimeHalf(props: EditableTimeHalfProps) {
+  const { animatedValue, onFocus, onEdit, alignText } = props;
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.value = padLeadingZero(animatedValue.get());
+    }
+
+    return animatedValue.on("change", (value) => {
+      if (inputRef.current && inputRef.current !== document.activeElement) {
+        inputRef.current.value = padLeadingZero(value);
+      }
+    });
+  }, [animatedValue]);
+
+  return (
+    <input
+      ref={inputRef}
+      className={styles.timeHalfInput}
+      type="number"
+      onFocus={onFocus}
+      onChange={(e) => {
+        onEdit(Math.max(e.target.valueAsNumber || 0, 0));
+      }}
+      onBlur={(e) => {
+        e.target.value = padLeadingZero(animatedValue.get());
+      }}
+      defaultValue="00"
+      style={{ textAlign: alignText }}
+    />
   );
 }
 
@@ -381,5 +499,5 @@ function padLeadingZero(num: number) {
   if (num < 10) {
     return `0${num}`;
   }
-  return num;
+  return String(num);
 }
