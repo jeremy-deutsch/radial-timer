@@ -1,0 +1,22 @@
+.timeHalfInput {
+  flex: 0;
+  min-width: 60px;
+  cursor: pointer;
+  background-color: transparent;
+  color: var(--theme-text-fill);
+  border: 1px solid transparent;
+  border-radius: 4px;
+
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.timeHalfInput:focus {
+  cursor: unset;
+  background-color: var(--theme-text-fill);
+  color: var(--theme-light-background);
+}
+
+.timeHalfInput:hover {
+  border: 1px solid var(--theme-text-fill);
+}

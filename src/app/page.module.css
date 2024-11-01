@@ -54,80 +54,6 @@
   color: var(--theme-icon-fill);
 }
 
-.radialTimerOuterWrapper {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  height: 300px;
-}
-
-.radialTimerContainer {
-  position: relative;
-}
-
-.radialTimerDragButton {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: calc(var(--drag-button-radius) * 2);
-  width: calc(var(--drag-button-radius) * 2);
-  border-radius: var(--drag-button-radius);
-  background-color: var(--theme-text-fill);
-  transform-origin: bottom right;
-  box-shadow: 0 0 6px 1px rgba(0, 0, 0, 0.3);
-}
-
-.radialTimerContainer svg {
-  width: 100%;
-  height: 220px;
-}
-
-.radialTimerBackCircle {
-  fill: transparent;
-  stroke: var(--theme-dark-background);
-  stroke-width: 10px;
-}
-
-.radialTimerFrontCircle {
-  fill: transparent;
-  stroke: var(--theme-text-fill);
-  stroke-width: 10px;
-}
-
-.timerInputsWrapper {
-  position: absolute;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  color: var(--theme-text-fill);
-  top: calc(var(--circle-center-y) - 22px);
-  font-size: 32px;
-  line-height: 42px;
-}
-
-.timeHalfInput {
-  flex: 0;
-  min-width: 60px;
-  cursor: pointer;
-  background-color: transparent;
-  color: var(--theme-text-fill);
-  border: 1px solid transparent;
-  border-radius: 4px;
-
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.timeHalfInput:focus {
-  cursor: unset;
-  background-color: var(--theme-text-fill);
-  color: var(--theme-light-background);
-}
-
-.timeHalfInput:hover {
-  border: 1px solid var(--theme-text-fill);
-}
-
 .bottomButtonRow {
   display: flex;
   justify-content: space-between;
@@ -157,4 +83,8 @@
   border-radius: 19px;
   background-color: var(--theme-dark-background);
   color: var(--theme-icon-fill);
+}
+
+.pausePlayButton:disabled {
+  opacity: 0.7;
 }
