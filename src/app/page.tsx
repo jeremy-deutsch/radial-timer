@@ -10,6 +10,8 @@ import {
 } from "framer-motion";
 import styles from "./page.module.css";
 import { useEffect, useRef, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faXmark, faPause, faPlay } from "@fortawesome/free-solid-svg-icons";
 
 // We store whatever's *not* frequently changing in state.
 // If the timer's paused, that's the amount of time left; if the timer's
@@ -100,7 +102,9 @@ export default function Home() {
       <main className={styles.mainTimerSection}>
         <div className={styles.header}>
           Timer
-          <button className={styles.closeButton}>x{/* TODO use icon */}</button>
+          <button className={styles.closeButton}>
+            <FontAwesomeIcon icon={faXmark} />
+          </button>
         </div>
         <RadialTimer
           currentTime={currentTime}
@@ -182,8 +186,9 @@ export default function Home() {
             +1:00
           </button>
           <button className={styles.pausePlayButton} onClick={togglePaused}>
-            {timerState.type === "paused" ? ">" : "||"}
-            {/* TODO use icons */}
+            <FontAwesomeIcon
+              icon={timerState.type === "paused" ? faPlay : faPause}
+            />
           </button>
           <button className={styles.bottomTextButton} onClick={reset}>
             Reset
@@ -194,8 +199,8 @@ export default function Home() {
   );
 }
 
-const CIRCLE_RADIUS = 100;
-const CIRCLE_CENTER_X = 200;
+const CIRCLE_RADIUS = 90;
+const CIRCLE_CENTER_X = 150;
 const CIRCLE_CENTER_Y = 120;
 
 const DRAG_BUTTON_RADIUS = 10;
@@ -333,7 +338,6 @@ function RadialTimer(props: RadialTimerProps) {
 
   return (
     <div className={styles.radialTimerOuterWrapper}>
-      {/* TODO give this proper accessible slider controls */}
       <div
         className={styles.radialTimerContainer}
         ref={radialTimerContainerRef}
@@ -431,6 +435,7 @@ function RadialTimer(props: RadialTimerProps) {
             r={CIRCLE_RADIUS}
             cx={CIRCLE_CENTER_X}
             cy={CIRCLE_CENTER_Y}
+            strokeLinecap="round"
           />
         </motion.svg>
         <div className={styles.timerInputsWrapper}>
