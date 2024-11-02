@@ -2,7 +2,7 @@
 
 import { MotionValue, useTime } from "framer-motion";
 import styles from "./page.module.css";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark, faPause, faPlay } from "@fortawesome/free-solid-svg-icons";
 import { MINUTE_MS, type TimerState } from "./timerShared";
@@ -216,7 +216,7 @@ export default function Home(props: HomeProps) {
       {dialogVisible && (
         <div className={styles.timeUpDialog}>
           <div className={styles.timeUpDialogModal}>
-            Ding dong! Time's up!
+            Ding dong! Time&lsquo;s up!
             <button
               aria-label="Close dialog"
               onClick={() => setDialogVisible(false)}

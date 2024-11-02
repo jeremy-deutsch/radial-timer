@@ -1,6 +1,6 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+## Run this locally
 
 First, install dependencies using `--legacy-peer-deps` (due to peer dependency issues from the RC version of React that NextJS uses):
 
