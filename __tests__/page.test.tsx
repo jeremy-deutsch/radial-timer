@@ -10,6 +10,7 @@ import "@testing-library/jest-dom";
 import userEvent, { UserEvent } from "@testing-library/user-event";
 import { act, render, waitFor } from "@testing-library/react";
 import { MotionValue } from "framer-motion";
+import TimeContext from "@/app/TimeContext";
 
 describe("Timer Page", () => {
   let injectedTime: MotionValue<number>;
@@ -21,7 +22,11 @@ describe("Timer Page", () => {
     injectedTime = new MotionValue();
     injectedTime.set(0);
 
-    render(<Home injectedTime={injectedTime} />);
+    render(
+      <TimeContext.Provider value={injectedTime}>
+        <Home />
+      </TimeContext.Provider>
+    );
   });
 
   describe("at the beginning", () => {

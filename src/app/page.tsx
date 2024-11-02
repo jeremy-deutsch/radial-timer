@@ -1,12 +1,13 @@
 "use client";
 
-import { MotionValue, useTime } from "framer-motion";
+import { useTime } from "framer-motion";
 import styles from "./page.module.css";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark, faPause, faPlay } from "@fortawesome/free-solid-svg-icons";
 import { MINUTE_MS, type TimerState } from "./timerShared";
 import RadialTimer from "./RadialTimer";
+import TimeContext from "./TimeContext";
 
 const INITIAL_TIMER_STATE: TimerState = {
   type: "paused",
@@ -14,14 +15,11 @@ const INITIAL_TIMER_STATE: TimerState = {
   timeLeftMs: 0,
 };
 
-interface HomeProps {
-  injectedTime?: MotionValue<number>;
-}
-
-export default function Home(props: HomeProps) {
+export default function Home() {
   let currentTime = useTime();
-  if (props.injectedTime) {
-    currentTime = props.injectedTime;
+  const injectedTime = useContext(TimeContext);
+  if (injectedTime) {
+    currentTime = injectedTime;
   }
 
   const [dialogVisible, setDialogVisible] = useState(false);
