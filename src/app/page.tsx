@@ -2,7 +2,7 @@
 
 import { MotionValue, useTime } from "framer-motion";
 import styles from "./page.module.css";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark, faPause, faPlay } from "@fortawesome/free-solid-svg-icons";
 import { MINUTE_MS, type TimerState } from "./timerShared";
@@ -23,6 +23,8 @@ export default function Home(props: HomeProps) {
   if (props.injectedTime) {
     currentTime = props.injectedTime;
   }
+
+  const [dialogVisible, setDialogVisible] = useState(false);
 
   const [timerState, setTimerState] = useState<TimerState>(INITIAL_TIMER_STATE);
 
@@ -173,6 +175,11 @@ export default function Home(props: HomeProps) {
               };
             });
           }}
+          onTimerComplete={() => {
+            reset();
+
+            setDialogVisible(true);
+          }}
         />
         <div className={styles.bottomButtonRow}>
           <button
@@ -206,6 +213,19 @@ export default function Home(props: HomeProps) {
           </button>
         </div>
       </main>
+      {dialogVisible && (
+        <div className={styles.timeUpDialog}>
+          <div className={styles.timeUpDialogModal}>
+            Ding dong! Time's up!
+            <button
+              aria-label="Close dialog"
+              onClick={() => setDialogVisible(false)}
+            >
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

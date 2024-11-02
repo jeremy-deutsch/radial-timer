@@ -19,6 +19,8 @@
   background-color: var(--theme-text-fill);
   transform-origin: bottom right;
   box-shadow: 0 0 6px 1px rgba(0, 0, 0, 0.3);
+
+  touch-action: pan-x pan-y;
 }
 
 .radialTimerContainer svg {

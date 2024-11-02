@@ -37,6 +37,7 @@ interface RadialTimerProps {
   onTogglePaused: () => void;
   pause: () => void;
   onEdit: (amount: number, field: "minutes" | "seconds") => void;
+  onTimerComplete: () => void;
 }
 
 export default function RadialTimer(props: RadialTimerProps) {
@@ -48,6 +49,7 @@ export default function RadialTimer(props: RadialTimerProps) {
     onTogglePaused,
     pause,
     onEdit,
+    onTimerComplete,
   } = props;
 
   const radialTimerContainerRef = useRef<HTMLDivElement>(null);
@@ -147,6 +149,21 @@ export default function RadialTimer(props: RadialTimerProps) {
     });
   }, [animatedTimeLeftMs]);
 
+  useEffect(() => {
+    return animatedTimeLeftMs.on("change", (value) => {
+      if (
+        timerState.type === "running" &&
+        timerState.totalTimeMs >= 0 &&
+        value <= 0 &&
+        !dragStartInfo
+      ) {
+        // If we don't queue the microtask here, Framer Motion tries to run
+        // this during render for some reason
+        queueMicrotask(() => onTimerComplete());
+      }
+    });
+  });
+
   return (
     <div className={styles.radialTimerOuterWrapper}>
       <div
@@ -200,10 +217,11 @@ export default function RadialTimer(props: RadialTimerProps) {
             const circleCenterYOnScreen =
               containerPosition.top + CIRCLE_CENTER_Y;
 
-            setDragStartInfo({
-              relativeStartX: info.point.x - circleCenterXOnScreen,
-              relativeStartY: info.point.y - circleCenterYOnScreen,
-            });
+            const relativeStartX = info.point.x - circleCenterXOnScreen;
+            const relativeStartY = info.point.y - circleCenterYOnScreen;
+
+            animatedDragState.set(getDragState(relativeStartX, relativeStartY));
+            setDragStartInfo({ relativeStartX, relativeStartY });
           }}
           onPanEnd={() => {
             const currentDragStateValue = animatedDragState.get();
@@ -224,13 +242,9 @@ export default function RadialTimer(props: RadialTimerProps) {
               info.offset.y + dragStartInfo.relativeStartY
             );
 
-            let angle = Math.atan2(xDistanceFromCenter, yDistanceFromCenter);
-
-            // The angle might be negative - make it not negative
-            angle = (angle + Math.PI * 2) % (Math.PI * 2);
-
-            // Set the drag state to the angle as a percentage of a full rotation
-            animatedDragState.set(angle / (Math.PI * 2));
+            animatedDragState.set(
+              getDragState(xDistanceFromCenter, yDistanceFromCenter)
+            );
           }}
         />
         <motion.svg>
@@ -270,4 +284,17 @@ export default function RadialTimer(props: RadialTimerProps) {
       </div>
     </div>
   );
+}
+
+function getDragState(
+  xDistanceFromCenter: number,
+  yDistanceFromCenter: number
+) {
+  let angle = Math.atan2(xDistanceFromCenter, yDistanceFromCenter);
+
+  // The angle might be negative - make it not negative
+  angle = (angle + Math.PI * 2) % (Math.PI * 2);
+
+  // The drag state is the angle as a percentage of a full rotation
+  return angle / (Math.PI * 2);
 }
