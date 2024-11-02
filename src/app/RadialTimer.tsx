@@ -150,7 +150,7 @@ export default function RadialTimer(props: RadialTimerProps) {
   }, [animatedTimeLeftMs]);
 
   useEffect(() => {
-    return animatedTimeLeftMs.on("change", (value) => {
+    return animatedTimeLeftPercentage.on("change", (value) => {
       if (
         timerState.type === "running" &&
         timerState.totalTimeMs >= 0 &&
